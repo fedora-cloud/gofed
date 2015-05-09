@@ -1,6 +1,9 @@
 cadvisor	cadvisor	https://github.com/google/cadvisor.git
 docker-io	docker	https://github.com/docker/docker.git
+etcd	etcd	https://github.com/coreos/etcd.git
 fleet	fleet	https://github.com/coreos/fleet.git
+kubernetes	kubernetes	https://github.com/GoogleCloudPlatform/kubernetes.git
+golang-bitbucket-kardianos-osext	osext	https://bitbucket.org/kardianos/osext
 golang-bitbucket-ww-goautoneg	goautoneg	https://bitbucket.org/ww/goautoneg
 golang-github-BurntSushi-toml	toml	https://github.com/BurntSushi/toml.git
 golang-github-SeanDolphin-bqschema	bqschema	https://github.com/SeanDolphin/bqschema.git
@@ -20,6 +23,7 @@ golang-github-dgnorton-goback	goback	https://github.com/dgnorton/goback.git
 golang-github-docker-libcontainer	libcontainer	https://github.com/docker/libcontainer.git
 golang-github-docker-libtrust	libtrust	https://github.com/docker/libtrust.git
 golang-github-docker-spdystream	spdystream	https://github.com/docker/spdystream.git
+golang-github-docopt-docopt-go	docopt.go	https://github.com/docopt/docopt.go.git
 golang-github-elazarl-go-bindata-assetfs	go-bindata-assetfs	https://github.com/elazarl/go-bindata-assetfs.git
 golang-github-emicklei-go-restful	go-restful	https://github.com/emicklei/go-restful.git
 golang-github-evanphx-json-patch	json-patch	https://github.com/evanphx/json-patch.git
@@ -35,14 +39,11 @@ golang-github-goraft-raft	raft	https://github.com/goraft/raft.git
 golang-github-gorilla-context	context	https://github.com/gorilla/context.git
 golang-github-gorilla-mux	mux	https://github.com/gorilla/mux.git
 golang-github-gorilla-websocket	websocket	https://github.com/gorilla/websocket.git
-golang-github-guelfey-godbus	godbus	https://github.com/guelfey/godbus.git
 golang-github-imdario-mergo	mergo	https://github.com/imdario/mergo.git
 golang-github-influxdb-go-cache	go-cache	https://github.com/influxdb/go-cache.git
 golang-github-influxdb-gomdb	gomdb	https://github.com/influxdb/gomdb.git
 golang-github-influxdb-hyperleveldb-go	hyperleveldb-go	https://github.com/influxdb/hyperleveldb-go.git
 golang-github-influxdb-influxdb	influxdb	https://github.com/influxdb/influxdb.git
-golang-github-influxdb-influxdb-client	influxdb-client	https://github.com/influxdb/influxdb-client.git
-golang-github-influxdb-influxdb-datastore	influxdb-datastore	https://github.com/influxdb/influxdb-datastore.git
 golang-github-influxdb-rocksdb	rocksdb	https://github.com/influxdb/rocksdb.git
 golang-github-jmhodges-levigo	levigo	https://github.com/jmhodges/levigo.git
 golang-github-jonboulle-clockwork	clockwork	https://github.com/jonboulle/clockwork.git
@@ -91,6 +92,7 @@ golang-github-vishvananda-netns	netns	https://github.com/vishvananda/netns.git
 golang-google-golangorg-cloud	gocloud	https://code.googlesource.com/gocloud.git
 golang-googlecode-gcfg	gcfg	https://code.google.com/p/gcfg.git
 golang-googlecode-go-decimal-inf	go-decimal-inf.exp	https://code.google.com/p/go-decimal-inf.exp.git
+golang-googlecode-go-exp	go.exp	https://code.google.com/p/go.exp
 golang-googlecode-goauth2	oauth2	https://github.com/golang/oauth2.git
 golang-googlecode-gogoprotobuf	gogoprotobuf	https://github.com/gogo/protobuf.git
 golang-googlecode-google-api-client	google-api-go-client	https://github.com/google/google-api-go-client.git

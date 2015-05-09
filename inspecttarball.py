@@ -19,15 +19,8 @@
 
 import os
 import optparse
-from modules.GoSymbols import getGoDirs
-
-directory = "/home/jchaloup/Packages/golang-github-influxdb-influxdb/fedora/golang-github-influxdb-influxdb/influxdb-67f9869b82672b62c1200adaf21179565c5b75c3"
-directory = "/home/jchaloup/Packages/golang-googlecode-gcfg/fedora/golang-googlecode-gcfg/gcfg-c2d3050044d0"
-
-
-def getSubdirs(directory):
-	return [name for name in os.listdir(directory)
-            if os.path.isdir(os.path.join(directory, name))]
+from modules.GoSymbolsExtractor import GoSymbolsExtractor
+from modules.Config import Config
 
 if __name__ == "__main__":
 
@@ -38,6 +31,11 @@ if __name__ == "__main__":
 	parser.add_option(
 	    "", "-p", "--provides", dest="provides", action = "store_true", default = False,
 	    help = "Display all directories with *.go files"
+	)
+
+	parser.add_option(
+	    "", "", "--prefix", dest="prefix", default = "",
+	    help = "Prefix all provided import paths, used with -p option"
 	)
 
 	parser.add_option(
@@ -55,28 +53,82 @@ if __name__ == "__main__":
 	    help = "Display all directories containing *.go test files"
 	)
 
+	parser.add_option(
+            "", "", "--scan-all-dirs", dest="scanalldirs", action = "store_true", default = False,
+            help = "Scan all dirs, including Godeps directory"
+        )
+
+	parser.add_option(
+            "", "", "--skip-dirs", dest="skipdirs", default = "",
+            help = "Scan all dirs except specified via SKIPDIRS. Directories are comma separated list."
+        )
+
 	options, args = parser.parse_args()
 
 	path = "."
 	if len(args):
 		path = args[0]
 
+	if not options.scanalldirs:
+		noGodeps = Config().getSkippedDirectories()
+	else:
+		noGodeps = []
+
+	if options.skipdirs:
+		for dir in options.skipdirs.split(','):
+			dir = dir.strip()
+			if dir == "":
+				continue
+			noGodeps.append(dir)
+
+	gse_obj = GoSymbolsExtractor(path, noGodeps=noGodeps)
+	if not gse_obj.extract():
+		print gse_obj.getError()
+		exit(1)
+
 	if options.provides:
-		sdirs = getGoDirs(path)
-		for dir in sorted(sdirs):
+		ip = gse_obj.getSymbolsPosition()
+
+		ips = []
+		for pkg in ip:
+			ips.append(ip[pkg])
+
+		skipped_provides_with_prefix = Config().getSkippedProvidesWithPrefix()
+
+		for ip in sorted(ips):
+			skip = False
+			for prefix in skipped_provides_with_prefix:
+				if ip.startswith(prefix):
+					skip = True
+					break
+
+			if skip:
+				continue
+
 			if options.spec != "":
-				if dir != ".":
-					print "Provides: golang(%%{import_path}/%s) = %%{version}-%%{release}" % (dir)
+				if ip != ".":
+					print "Provides: golang(%%{import_path}/%s) = %%{version}-%%{release}" % (ip)
 				else:
 					print "Provides: golang(%{import_path}) = %{version}-%{release}"
+			elif options.prefix != "":
+				if ip != ".":
+					print "%s/%s" % (options.prefix, ip)
+				else:
+					print options.prefix
 			else:
-				print dir
+				print ip
+
 	elif options.test:
-		sdirs = sorted(getGoDirs(path, test = True))
+		sdirs = sorted(gse_obj.getTestDirectories())
 		for dir in sdirs:
 			print dir
 	elif options.dirs:
-		sdirs = sorted(getSubdirs(path))
+		dirs = gse_obj.getSymbolsPosition().values() + gse_obj.getTestDirectories()
+		sdirs = []
+		for dir in dirs:
+			sdirs.append( dir.split("/")[0] )
+
+		sdirs = sorted(list(set(sdirs)))
 		for dir in sdirs:
 			print dir
 	else:

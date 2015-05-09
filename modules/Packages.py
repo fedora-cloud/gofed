@@ -1,30 +1,33 @@
-from Utils import getScriptDir, runCommand, inverseMap
+from Utils import runCommand, inverseMap
 import re
 import os
+import sys
 import tempfile
 import shutil
-from Repos import detectRepoPrefix
-from ImportPaths import loadImportPathDb
 import operator
 from GoSymbols import ProjectToXml
-from specParser import getPkgURL, fetchProvides
+from RemoteSpecParser import RemoteSpecParser
 from Repos import Repos, IPMap
 from xml.dom import minidom
 from xml.dom.minidom import Node
-
-GOLANG_PACKAGES="data/golang.packages"
-GOLANG_PKG_DB="data/pkgdb"
-script_dir = getScriptDir() + "/.."
+from ImportPathDB import ImportPathDB
+from Config import Config
 
 def loadPackages():
+	golang_packages_path = Config().getGolangPackages()
 	packages = []
-	with open("%s/%s" % (script_dir, GOLANG_PACKAGES), "r") as file:
-		for line in file.read().split('\n'):
-			line = line.strip()
-			if line == '' or line[0] == '#':
-				continue
+	try:
+		with open(golang_packages_path, "r") as file:
+			for line in file.read().split('\n'):
+				line = line.strip()
+				if line == '' or line[0] == '#':
+					continue
 
-			packages.append(line)
+				packages.append(line)
+	except IOError, e:
+		sys.stderr.write("%s\n" % e)
+		return []
+
 	return packages
 
 # detect if it packages is already in pkgdb
@@ -79,9 +82,9 @@ class Package:
 		cwd = os.getcwd()
 		if os.path.exists("%s/%s" % (cwd, 'build')):
 			return {}
-
-		_, _, rc = runCommand("mkdir build")
-		if rc != 0:
+		try:
+			os.mkdir("build", 0755);
+		except OSError as error:
 			return {}
 
 		os.chdir('build')
@@ -89,6 +92,14 @@ class Package:
 
 		# scan builds using native golang parser
 		package_xml = ProjectToXml("", "%s/%s" % (os.getcwd(), 'usr/share/gocode/src/'), self.latest_build)
+
+		os.chdir(cwd)
+
+		try:
+			shutil.rmtree("build")
+		except OSError as error:
+			return {}
+
 
 		return {
 			"xmlobj": package_xml
@@ -188,8 +199,12 @@ def savePackageInfo(pkg_info):
 			errs.append("Warning: unable to parse %s. Error: %s" % (build, obj.getError()))
 			continue
 
-		with open("%s/%s/%s.xml" % (script_dir, GOLANG_PKG_DB, build), "w") as f:
-			f.write(str(obj))
+		golang_pkg = Config().getGolangPkgdb()
+		try:
+			with open("%s/%s.xml" % (golang_pkg, build), "w") as f:
+				f.write(str(obj))
+		except IOError, e:
+			sys.stderr.write("%s\n" % e)
 
 	return errs
 
@@ -366,9 +381,15 @@ def joinGraphs(g1, g2):
 	return (nodes, edges)
 
 
-def buildRequirementGraph(verbose=False):
+def buildRequirementGraph(verbose=False, cache=False):
 	# load imported and provided paths
-	ip_provides, ip_imports, pkg_devel_main_pkg = loadImportPathDb()
+	ipdb_obj = ImportPathDB(cache=cache)
+	if not ipdb_obj.load():
+		print "Error: %s" % ipdb_obj.getErorr()
+
+	ip_provides = ipdb_obj.getProvidedPaths()
+	ip_imports = ipdb_obj.getImportedPaths()
+	pkg_devel_main_pkg = ipdb_obj.getDevelMainPkg()
 	# 1) for each package get a list of all packages it needs
 	# 2) in this list find all cyclic dependencies
 
@@ -462,30 +483,40 @@ class LocalDB:
 		self.local_pkgs = []
 
 	def loadPackages(self):
+		golang_packages_path = Config().getGolangPackages()
 		packages = []
-		with open("%s/%s" % (script_dir, GOLANG_PACKAGES), "r") as file:
-			for line in file.read().split('\n'):
-				line = line.strip()
-				if line == '' or line[0] == '#':
-					continue
+		try:
+			with open(golang_packages_path, "r") as file:
+				for line in file.read().split('\n'):
+					line = line.strip()
+					if line == '' or line[0] == '#':
+						continue
 
-				if line not in packages:
-					packages.append(line)
+					if line not in packages:
+						packages.append(line)
+		except IOError, e:
+			sys.stderr.write("%s\n" % e)
+
 		return packages
 
 	def savePackages(self, packages):
 		if packages == []:
 			return False
-
-		with open("%s/%s.tmp" % (script_dir, GOLANG_PACKAGES), "w") as file:
-			for pkg in packages:
-				file.write("%s\n" % pkg)	
+		golang_packages_path = Config().getGolangPackages()
+		try:
+			with open("%s.tmp" % golang_packages_path, "w") as file:
+				for pkg in packages:
+					file.write("%s\n" % pkg)	
+		except IOError, e:
+			sys.stderr.write("%s\n" % e)
+			return False
 
 		return True
 
 	def flush(self):
-		os.rename("%s/%s.tmp" % (script_dir, GOLANG_PACKAGES),
-			"%s/%s" % (script_dir, GOLANG_PACKAGES))
+		golang_packages_path = Config().getGolangPackages()
+		os.rename("%s.tmp" % golang_packages_path,
+			golang_packages_path)
 
 	# 1) get a list of new packages
 	# 2) add the list into golang.packages
@@ -505,7 +536,11 @@ class LocalDB:
 
 		checked_packages = []
 		for pkg in new_packages:
-			url = getPkgURL(pkg)
+			rsp_obj = RemoteSpecParser('master', pkg)
+			if not rsp_obj.parse():
+				continue
+
+			url = rsp_obj.getPkgURL()
 			if url == "":
 				err.append("Unable to get URL tag from %s's spec file" % pkg)	
 				continue
@@ -559,7 +594,11 @@ class LocalDB:
 		mapping = IPMap().loadIMap()
 
 		for pkg in new_packages:
-			provides = fetchProvides(pkg, 'master')
+			rsp_obj = RemoteSpecParser('master', pkg)
+			if not rsp_obj.parse():
+				continue
+
+			provides = rsp_obj.getProvides()
 			imap = inverseMap(provides)
 			for arg in imap:
 				for image in imap[arg]:
@@ -585,7 +624,11 @@ class LocalDB:
 		mapping = IPMap().loadIMap()
 
 		for pkg in outdated_packages:
-			provides = fetchProvides(pkg, 'master')
+			rsp_obj = RemoteSpecParser('master', pkg)
+			if not rsp_obj.parse():
+				continue
+
+			provides = rsp_obj.getProvides()
 			imap = inverseMap(provides)
 			for arg in imap:
 				for image in imap[arg]:
@@ -603,7 +646,8 @@ class LocalDB:
 			return self.loadBuildsFromCache()
 
 		builds = {}
-		for dirName, subdirList, fileList in os.walk("%s/%s" % (script_dir, GOLANG_PKG_DB)):
+		golang_pkg = Config().getGolangPkgdb()
+		for dirName, subdirList, fileList in os.walk(golang_pkg):
 			for fname in fileList:
 				if not fname.endswith(".xml"):
 					continue
@@ -624,10 +668,14 @@ class LocalDB:
 		return builds
 
 	def saveBuildsToCache(self, builds):
-		with open("%s/%s/nvrs.cache" % (script_dir, GOLANG_PKG_DB), "w") as file:
-			sbuilds = sorted(builds.keys())
-			for build in sbuilds:
-				file.write("%s\n" % builds[build])
+		golang_pkg = Config().getGolangPkgdb()
+		try:
+			with open("%s/nvrs.cache" % golang_pkg, "w") as file:
+				sbuilds = sorted(builds.keys())
+				for build in sbuilds:
+					file.write("%s\n" % builds[build])
+		except IOError, e:
+			sys.stderr.write("%s\n" % e)
 
 	def updateBuildsInCache(self, new_builds):
 		if self.local_pkgs == []:
@@ -638,22 +686,25 @@ class LocalDB:
 
 		self.saveBuildsToCache(self.local_pkgs)
 
-
 	def loadBuildsFromCache(self):
 		builds = {}
-		if not os.path.exists("%s/%s/nvrs.cache" % (script_dir, GOLANG_PKG_DB)):
+		golang_pkg = Config().getGolangPkgdb()
+		if not os.path.exists("%s/nvrs.cache" % golang_pkg):
 			return self.loadLatestBuilds(cache=False)
 
-		with open("%s/%s/nvrs.cache" % (script_dir, GOLANG_PKG_DB), "r") as file:
-			for line in file.read().split("\n"):
-				line = line.strip()
-				if line == "":
-					continue
+		try:
+			with open("%s/nvrs.cache" % golang_pkg, "r") as file:
+				for line in file.read().split("\n"):
+					line = line.strip()
+					if line == "":
+						continue
 
-				parts = line.split("-")
-				pkg = "-".join(parts[0:-2])
+					parts = line.split("-")
+					pkg = "-".join(parts[0:-2])
 
-				builds[pkg] = line
+					builds[pkg] = line
+		except IOError, e:
+			sys.stderr.write("%s\n", e)
 
 		return builds
 

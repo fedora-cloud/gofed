@@ -4,7 +4,7 @@ from modules.Utils import runCommand
 import tempfile
 import shutil
 from time import time, strftime, gmtime
-
+import sys
 
 def printSCC(scc):
 	print "Cyclic dep detected (%s): %s" % (len(scc), ", ".join(scc))
@@ -48,7 +48,12 @@ def getGraphvizDotFormat(graph):
 
 def showGraph(graph, out_img = "./graph.png"):
 	tmp_dir = tempfile.mkdtemp()
-	f = open("%s/graph.dot" % (tmp_dir), "w")
+	try:
+		f = open("%s/graph.dot" % (tmp_dir), "w")
+	except IOError, e:
+		sys.stderr.write("%s\n" % e)
+		return
+
 	f.write(getGraphvizDotFormat(graph))
 	f.close()
 	# fdp -Tpng test.dot > test.png
@@ -130,19 +135,23 @@ if __name__ == "__main__":
 
 		print "Reading packages..."
 		scan_time_start = time()
-		graph, pkg_devel_main_pkg = buildRequirementGraph(options.verbose)
+		graph, pkg_devel_main_pkg = buildRequirementGraph(options.verbose, cache=True)
 		nodes, _ = graph
 		graph_cnt = len(nodes)
 
 		if pkg_name != "":
 			graph = truncateGraph(graph, pkg_name, pkg_devel_main_pkg)
+			if graph == None:
+				print "No graph generated, package probably does not exist"
+				exit(0)
+
 			nodes, _ = graph
 			subgraph_cnt = len(nodes)
 			
 		scan_time_end = time()
 		print strftime("Completed in %Hh %Mm %Ss", gmtime(scan_time_end - scan_time_start))
 		if pkg_name != "":
-			print "%s nodes of %s" % (graph_cnt, subgraph_cnt)
+			print "%s nodes of %s" % (subgraph_cnt, graph_cnt)
 		else:
 			print "%s nodes in total" % (graph_cnt)
 

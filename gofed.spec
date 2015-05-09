@@ -1,13 +1,13 @@
-%global debug_package   %{nil}
+%global _dwz_low_mem_die_limit 0
 %global provider        github
 %global provider_tld    com
 %global project        	ingvagabund
 %global repo            gofed
-%global commit		837cc974bd366a2093991a0edb6d3beb6b5b256e
+%global commit		8933880ff3e785a6f2f98aaa3b8bb476a61034ae
 %global shortcommit	%(c=%{commit}; echo ${c:0:7})
 
 Name:		gofed
-Version:	0
+Version:	0.0.3
 Release:	0.1.git%{shortcommit}%{?dist}
 Summary:	Tool for development of golang devel packages
 License:	GPLv2+
@@ -31,52 +31,62 @@ If possible, all in one command.
 %setup -q -n %{repo}-%{commit}
 
 %build
-go build parseGo.go
+function gobuild { go build -a -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \n')" -v -x "$@"; }
+gobuild parseGo.go
 
 %install
 # copy bash completition
-mkdir -p %{buildroot}/etc/bash_completion.d/
-./gen_bash_completion.sh %{name} > %{buildroot}/etc/bash_completion.d/%{name}
+mkdir -p %{buildroot}%{_sysconfdir}/bash_completion.d/
+./gen_bash_completion.sh %{name} > %{buildroot}%{_sysconfdir}/bash_completion.d/%{name}
 # copy man page
-mkdir -p %{buildroot}/usr/share/man/man1
-cp man/gofed-help.1 %{buildroot}/usr/share/man/man1/gofed.1
+mkdir -p %{buildroot}%{_mandir}/man1
+cp man/gofed-help.1 %{buildroot}/%{_mandir}/man1/gofed.1
 # copy scripts
 mkdir -p %{buildroot}/usr/share/%{name}
-cp *.sh %{buildroot}/usr/share/%{name}/.
+cp bitbucket2gospec.sh gen_bash_completion.sh github2gospec.sh \
+   googlecode2gospec.sh %{buildroot}/usr/share/%{name}/.
 cp *.py %{buildroot}/usr/share/%{name}/.
 cp -r modules %{buildroot}/usr/share/%{name}/.
 cp parseGo %{buildroot}/usr/share/%{name}/.
 # copy config
-mkdir -p %{buildroot}/usr/share/%{name}/config
-cp config/gofed.conf %{buildroot}/usr/share/%{name}/config/.
-# copy golang list and native imports
-cp -r data %{buildroot}/usr/share/%{name}/.
+mkdir -p %{buildroot}%{_sysconfdir}/
+cp config/gofed.conf %{buildroot}%{_sysconfdir}/.
 # copy the tool script
 cp %{name} %{buildroot}/usr/share/%{name}/.
 # directory for local database
-mkdir -p %{buildroot}/var/lib/%{name}
-install -m 755 -d %{buildroot}/var/lib/%{name}
-
-%post
-if [ "$1" -eq 1 ]; then
-	# make a symlink to gofed
-	ln -s /usr/share/%{name}/%{name} /usr/bin/%{name}
-fi
-
-%preun
-if [ "$1" -eq 0 ]; then
-	rm /usr/bin/%{name}
-fi
+mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
+install -m 755 -d %{buildroot}/%{_sharedstatedir}/%{name}
+install -m 755 -d %{buildroot}/usr/bin
+# copy golang list and native imports
+cp -r data %{buildroot}%{_sharedstatedir}/%{name}/.
+ln -s /usr/share/%{name}/%{name} %{buildroot}/usr/bin/%{name}
+# symlinks
+cp build gcp pull push scratch-build update bbobranches %{buildroot}/usr/share/%{name}/.
 
 %files
 %doc README.md LICENSE
-%config /usr/share/%{name}/config/gofed.conf
-/etc/bash_completion.d/%{name}
+%config(noreplace) /etc/gofed.conf
+%{_sysconfdir}/bash_completion.d/%{name}
 /usr/share/%{name}
-/usr/share/man/man1/gofed.1.gz
-/var/lib/%{name}
+%{_mandir}/man1/gofed.1.gz
+%{_sharedstatedir}/%{name}
+/usr/bin/%{name}
+
+%check
+function gofed { %{buildroot}/usr/share/%{name}/%{name} "$@" --dry; }
+gofed scratch-build
+gofed build
+gofed pull
+gofed push
+gofed update
+gofed gcpmaster
+gofed tools --git-reset
+gofed tools --bbo --dry test
+gofed tools --bbo --wait --dry test
+gofed tools --waitbbo --dry test
+gofed wizard --scratch --dry
 
 %changelog
-* Mon Mar 23 2015 jchaloup <jchaloup@redhat.com> - 0-0.1.git3b5f081
+* Fri May 08 2015 jchaloup <jchaloup@redhat.com> - 0.0.3-0.1.git8933880
 - Initial commit for Fedora
 

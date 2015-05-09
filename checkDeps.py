@@ -1,16 +1,21 @@
 import json
 import sys
 import modules.Repos
-import modules.specParser
 import modules.Utils
 import optparse
+import os
 from modules.Utils import GREEN, RED, ENDC, YELLOW
 from modules.Repos import Repos, IPMap
+from modules.RemoteSpecParser import RemoteSpecParser
 
 def getGoDeps(path):
 	deps = {}
-	with open(path, 'r') as file:
-		json_deps = json.loads(file.read())
+	try:
+		with open(path, 'r') as file:
+			json_deps = json.loads(file.read())
+	except IOError, e:
+		sys.stderr.write("%s\n" % e)
+		return {}
 
 	if "Deps" not in json_deps:
 		return {}
@@ -50,6 +55,11 @@ if __name__ == "__main__":
 
 	json_file = args[0]
 
+	# json file exists?
+	if not os.path.exists(json_file):
+		print "JSON file %s not found" % json_file
+		exit(1)
+
 	deps = getGoDeps(json_file)
 	if deps == {}:
 		print "%s is corrupted or has no dependencies" % json_file
@@ -83,7 +93,11 @@ if __name__ == "__main__":
 		cache.append(pkg)
 		path, upstream = repos[pkg]
 		ups_commits = modules.Repos.getRepoCommits(path, upstream, pull=options.pull)
-		pkg_commit  = modules.specParser.getPackageCommits(pkg)
+		rsp_obj = RemoteSpecParser('master', pkg)
+		if not rsp_obj.parse():
+			continue
+
+		pkg_commit  = rsp_obj.getPackageCommits()
 
 		# now fedora and commit, up to date?
 		if commit not in ups_commits:

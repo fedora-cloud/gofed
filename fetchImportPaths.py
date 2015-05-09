@@ -1,14 +1,16 @@
 from modules.Packages import Package
 from modules.Packages import loadPackages, savePackageInfo, LocalDB
 import optparse
-from modules.ImportPaths import getDevelImportedPaths
-from modules.ImportPaths import getDevelProvidedPaths
+from modules.ImportPathDB import ImportPathDB
+from modules.Utils import FormatedPrint
+from modules.ImportPathDB import ImportPathDBCache
+from modules.Config import Config
 
 from time import time, strftime, gmtime
 import sys
 import os
 
-def createDB(full=False):
+def createDB(full=False, verbose=False):
 	scan_time_start = time()
 	packages = []
 	outdated = {}
@@ -23,6 +25,12 @@ def createDB(full=False):
 			print "Warning: " + "\nWarning: ".join(err)
 
 		packages = outdated.keys()
+
+	if verbose:
+		print "Packages to be scanned:"
+		for pkg in packages:
+			print "\t%s" % pkg
+		print ""
 
 	pkg_cnt = len(packages)
 	pkg_idx = 1
@@ -39,13 +47,21 @@ def createDB(full=False):
 	err, ret = LocalDB().updatePackages(packages)
 	if not ret:
 		print "Error:\n" + "\n".join(err)
+		return False	
+
+	ipdb_cache = ImportPathDBCache()
+	if not ipdb_cache.load():
+		print "Error: %s" % ipdb_cache.getError()
 		return False
+
+	golang_pkg = Config().getGolangPkgdb()
 
 	for package in packages:
 		starttime = time()
 		# len of pkg_idx
 		pkg_idx_len = len("%s" % pkg_idx)
 		sys.stdout.write("Scanning %s %s %s%s/%s " % (package, (pkg_name_len - len(package) + 3) * ".", (pkg_cnt_len - pkg_idx_len) * " " , pkg_idx, pkg_cnt))
+		sys.stdout.flush()
 		pkg = Package(package)
 		info = pkg.getInfo()
 		# save xml into file
@@ -61,6 +77,21 @@ def createDB(full=False):
 		endtime = time()
 		elapsedtime = endtime - starttime
 		print strftime("[%Hh %Mm %Ss]", gmtime(elapsedtime))
+
+		# update cache of imported and provided packages
+		for item in info:
+			devel_name = item
+
+			# This is hacky and depends on info data type represenation
+			pkg2xml_obj = info[item]['xmlobj']
+			imports = pkg2xml_obj.getImportedPackages()
+			provides = pkg2xml_obj.getProvidedPackages()
+
+			ipdb_cache.updateBuild(devel_name, provides, imports, package)
+
+
+	if not ipdb_cache.flush():
+		print ipdb_cache.getError()
 
 	scan_time_end = time()
 	print strftime("Elapsed time %Hh %Mm %Ss", gmtime(scan_time_end - scan_time_start))
@@ -121,23 +152,40 @@ if __name__ == "__main__":
 	    help = "List only packages. Used with -s option."
 	)
 
+	parser.add_option(
+	    "", "-v", "--verbose", dest="verbose", action = "store_true",  default = False,
+	    help = "Verbose mode."
+	)
+
 	options, args = parser.parse_args()
+
+	fmt_obj = FormatedPrint(formated=False)
 
 	if options.imports and options.provides:
 		print "You can not set both -i and -o options at the same time"
 		exit(1)
 
 	if options.create:
-		if createDB(options.full):
+		if createDB(full=options.full, verbose=options.verbose):
 			print "DB updated"
 		else:
 			print "DB not updated"
 
 	elif options.imports:
-		paths = getDevelImportedPaths()
+		ipdb_obj = ImportPathDB()
+		if not ipdb_obj.load():
+			fmt_obj.printError(ipdb_obj.getError())
+			exit(1)
+
+		paths = ipdb_obj.getImportedPaths()
 		displayPaths(paths, options.prefix, options.minimal)
 	elif options.provides:
-		paths = getDevelProvidedPaths()
+		ipdb_obj = ImportPathDB()
+		if not ipdb_obj.load():
+			fmt_obj.printError(ipdb_obj.getError())
+			exit(1)
+
+		paths = ipdb_obj.getProvidedPaths()
 		displayPaths(paths, options.prefix, options.minimal)
 	else:
 		print "Synopsis: prog [-c [-f]] [-i|-p [-s [-m]]]"

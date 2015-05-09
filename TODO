@@ -1,78 +1,118 @@
-- tool name is gofed
-- groups: spec, scan, check, build
-	spec: github2spec, googlecode2spec, review, bump, lint
-	scan: ggi, inspect, scan, scaninfo, scan-imports, scan-packages, scandeps, scansymbols
-	check: check-commit, check-deps, 
-	build: scratch-build, build, update, pull, bbo, gcpmaster, initpkg
-
-- gofed COMMAND [OPTIONS]
-- gofed-spec [COMMAND] [OPTIONS]
-- gofed-scan [COMMAND] [OPTIONS]
-- gofed-check [COMMAND] [OPTIONS]
-- gofed-build [COMMAND] [OPTIONS]
-
 ====version-2====
-====TODO===
-[  ] - write a tool to generate Godeps.json file (but how to detect) {https://github.com/jingweno/nut}
-[  ] - when running gofed scan-imports -c and the connection is down, make an option to continue in the database update from the last script run
-[  ] - rewrite gofed github2spec to use only github url [plus optional commit]
-[  ] - when running gofed bump, add check for missing/superfluous provides and [build]requires
-[  ] - from spec file extract its changelog and get the latest related or resolves
-[  ] - when searching for new golang packages, repoquery those which depends on golang devel packages
-[  ] - write a script to check for ownership of golang directories (to have an overview)
-[  ] - write a script to update all local golang packages to the latest built
+====NICE2TODO====
+[  ] - for every package create a 'go_info' file with all necesiary informations (or statistics) about the devel subpackage and project (like a history)
+[  ] - add time measurement to all commands, optimize what can be optimized
 [  ] - measure computation time of scripts used in cron job[s] and optimize them
-[  ] - make a script to compare provides in spec and in tarball (handy for updates)
+[  ] - add --dry option to all commands
+[  ] - write a tool to generate Godeps.json file (but how to detect) {https://github.com/jingweno/nut}
+[  ] - write a script to check for ownership of golang directories (to have an overview)
 [  ] - for each scan make a temp file that holds all items that were already succesefully checked (in case of a failed check, check only those that did not pass)
-[  ] - add options to run individual parts of build phase or all phases from a given phase number (gofed initpkg, possibly rename the command) or decompose it into subpackages
-[  ] - gofed [scratch-]build: add options to specify branches to use only
-[  ] - after gofed created -c test if some lines were removed and ask for confirmation (add -y option as yes for all) 
 [  ] - statistics of number of golang commits/builds/updates/overrides per day (from koji, updates, ...)
+
+====TODO===
+[  ] - read pkgdb in parallel via threads
+[  ] - when searching for new golang packages, repoquery those which depends on golang devel packages
+[  ] - write a script to update all local golang packages to the latest built
+[  ] - after gofed created -c test if some lines were removed and ask for confirmation (add -y option as yes for all) 
 [  ] - write a script to detect if all packages are up to date, use https://api.github.com/repos/<repo>/<project>/commits, e.g. https://api.github.com/repos/spf13/hugo/commits
+[  ] - run a scan of all packages to check if they are up2date with upstream or not
 [  ] - check koji for overrides: koji latest-build does not always returns the latest rawhide build => need to sync it and untag relevant overrides to get the latest builds
-[  ] - add --skip-branch into build/scratchbuild
 [  ] - gopkg.in spec file generator
-[  ] - bitbucket spec file generator
 [  ] - create fedora mailing list to register new golang packages
 [  ] - bodhi --new --type newpackage --notes 'First package for Fedora' golang-github-vaughan0-go-ini-0-0.2.gita98ad7e.el6
-[  ] - update packaging draft for golang
-[  ] - for a given package, list all its deps and for this deps, list all its deps, and so on
+[  ] - bodhi --new --release f21 --file bodhi.template golang-github-onsi-ginkgo-1.1.0-1.fc21 --username jchaloup
 [  ] - make an online graph of golang deps and info about them (plus changelog of fedora packaging and known issues = cyclic deps, missing [Build]Requires, ...?)
 [  ] - script to check which golang packages are stable, testing, not updated yet (el6 basically)
-[  ] - script to list all dependencies (recursivelly) for a given package {partially by gofed scandeps -g PKGNAME}
-[  ] - add option to gofed inspect to skip some directories (example, ...)
 [  ] - write a scan of all golang packages for conflicting files (does any two packages install the same file?)
+[  ] - add logger to gofed
+[  ] - use gofed inspect to list all directories containing *.go files and make it a dep of all golang packages? What other things can gofed provide? List of provides, ...?
+[  ] - when running bbo, untag all bbo before the current bbo
+[  ] - if I run more gofed check-deps at the same time, will it collide?
+[  ] - run apidiff for all commits of a given package (graph: y #+/-, x commits)
+[  ] - gofed check-api URL: make an overview of changes of all symbols through out all commits
+[  ] - finish inspectpackage.sh
+[  ] - replace initPackageInRepo.sh with gofed wizard
+[  ] - add locks (gofed scan-imports can modify local db, it is not good to run gofed scandeps or other commands)
+[  ] - hourly scan of golang packages => create server for that
+[  ] - write a script to get a list of all builds ready to be pushed to stable (7 days expired, ...)
+[  ] - create a tool that for a given project creates a list of all dependencies (use go get to download all deps) => graph of deps
+[  ] - for each project list all used symbols (with possible package membership). User will get a list of all possible symbols which will need manual inspection in some cases.
+[  ] - use go get to retrieve all tarballs? universal spec generator?
+[  ] - gofed ggi: if class unknown, add some hints how to handle it
+[  ] - decompose project into subpackages
+[  ] - daily check for broken import paths (just use gofed scan-deps errors/warnings) 
+[  ] - if I update package will it be enougn for all tools (would be great to see what tools use what commits) => put Godeps.json files of tools to sources file so it can be downloaded easilly? Or when gofed scan-imports -c: create/update a local database of Godeps.json files for all tarballs that has it (add line to copy Godeps.json to %docs) + update Go packaging draft (again as optional)
 
 ====version-1====
 
-====TODO===
-[OK] - gofed apidiff: add --prefix to specify import path prefix
-[  ] - do "more good than harm" analysis
+====NOTCRITICAL====
 [  ] - gofed apidiff libcontainer-1.2.0 libcontainer-1.4.0 -c: some messages still miss its location (is it parameter, is it type, ...)
-[  ] - api check: if a type is change to its super type, report it but without minus symbol "-" => upgrade the check and for a given type list all its supertypes as well (second walk through go symbols)
-[  ] - run apidiff for all commits of a given package (graph: y #+/-, x commits)
-[  ] - add options to run wizard only for a single branch
-[  ] - /tmp/test/etcd-2.0.3/client/http.go has interface in interface which is not present in exported symbols (type SyncableHTTPClient interface)
-[  ] - when running bbo, untag all bbo before the current bbo
-[  ] - cache imported and provided paths of local packages (takes about 13-16 seconds to generate one graph)
-[  ] - write a short document about gofed tool (after renaming it to gofed). But just about the graph and what it tells about the system. Publish individual use case rather then the whole tool. Still young to make a version 1.
-[  ] - obsolete launchpad package
-[  ] - replace ggi and inspect with scansymbols
-[  ] - When I update a package, gofed scan-imports will update local db. But list of import paths provided by spec files is not updated. gofed scan-packages -u has to update those import paths as well.
-[  ] - from gofed scandeps list of missing import paths
-[  ] - sort all symbols in an alphabetical order before saving to xml file
-[  ] - rename gofed to gofed
-[  ] - rewrite all *.sh scripts into python, replace gofed calls with a python module function
-[  ] - create a service file to run daily/hourly scans (updates of local pkgdb)
-[  ] - move path of all local databases to config file
-[  ] - document, document, document, ...
-[  ] - gofed check-api URL: make an overview of changes of all symbols through out all commits
-[  ] - gofed scansymbols: dont list provided import paths for packages that has exported symbols only from _test.go files
-[  ] - gofed ggi - filter out all import paths in provides that defines only main packages
-[  ] - script to check a structure of spec file of every golang package
 [  ] - add to description of every package some information to be parsed by scripts, e.g. commit, upstream url, ...
+[  ] - /tmp/test/etcd-2.0.3/client/http.go has interface in interface which is not present in exported symbols (type SyncableHTTPClient interface)
+[  ] - bash completion for directory paths (some commands neeed it and the current bash completion does not complete it)
+[  ] - error messages prefixed by Error
+[  ] - take a look at convention of private and public methods|attributes
+[  ] - create a subpackage of gofed to provide only inspect utilities (list of imports, list of directories providing go source codes, ...) and replace copying of directories in an %install section
+[  ] - for a given package, list all its deps and for this deps, list all its deps, and so on {graph is not enough, only terminal output}
+[  ] - api check: if a type is change to its super type, report it but without minus symbol "-" => upgrade the check and for a given type list all its supertypes as well (second walk through go symbols) {is there something like supertype in golang}
+[  ] - sort all symbols in an alphabetical order before saving to xml file
+[  ] - create a service file to run daily/hourly scans (updates of local pkgdb)
+[  ] - script to check a structure of spec file of every golang package
+[  ] - for each package in Godeps.json check if the given import path is provided, not just the package itself
+[  ] - run all commands without internet connection (print no internet connection error, catch exception, gofed bump, gofed repo2spec --detect, ...)
+[  ] - script to list all dependencies (recursivelly) for a given package {partially by gofed scandeps -g PKGNAME}
+
+====TODO===
+[  ] - DOC: godep check-deps is using data/golang.imap, which has to updated by gofed scan-imports
+[  ] - DOC: write a short document about gofed tool (after renaming it to gofed). But just about the graph and what it tells about the system. Publish individual use case rather then the whole tool. Still young to make a version 1.
+[  ] - DOC: when running gofed review, ssh-copy-key must be used (no password)
+[  ] - update packaging draft for golang {once lint is finished (to some extent)}
+[  ] - gofed repo2spec: add option to generate spec files for secondary architectures as well
 
 ====DONE====
+[OK] - try except for every open
+[OK] - find a way how to detect what subpackages given package has => get a list of builds (spec file parser? cat spec | grep package
+[OK] - golang-github-influxdb-influxdb-client and https://github.com/guelfey/go.dbus, fix golang.repos
+[OK] - gofed bbo\bbe - if no build specified, use the latest (how to find the latest built in koji? construct the name from spec file, i.e. Name, Version, Release tags)
+[OK] - from spec file extract its changelog and get the latest related or resolves
+[OK] - remove modules/specParser.py (refactor the code)
+[OK] - from gofed scandeps list of missing import paths in spec file
+[--] - when running gofed scan-imports -c and the connection is down, make an option to continue in the database update from the last script run
+[OK] - regenerate local database of imported and providede packages during 'gofed scan-imports -c'
+[OK] - cache imported and provided paths of local packages (takes about 13-16 seconds to generate one graph)
+[OK] - move /usr/share/gofed/config/gofed.conf to /etc/gofed.conf
+[--] - gofed bump should check if the version has changed and report it on stdout
+[--] - when running [scratch]build, check for state of a build? (every 10 seconds get if it is doing mock, building, instaling, ...?)
+[OK] - add option to gofed inspect to skip some directories (example, ...)
+[OK] - add options to run individual parts of build phase or all phases from a given phase number (gofed initpkg, possibly rename the command) or decompose it into subpackages
+[OK] - gofed [scratch-]build: add options to specify branches to use only
+[OK] - rewrite gofed github2spec to use only github url [plus optional commit]
+[--] - when running gofed bump, add check for missing/superfluous provides and [build]requires
+[OK] - make a script to compare provides in spec and in tarball (handy for updates)
+[OK] - rewrite all *.sh scripts into python, replace gofed calls with a python module function
+[OK] - gofed scansymbols: dont list provided import paths for packages that has exported symbols only from _test.go files
+[OK] - move path of all local databases to config file
+[OK] - gofed ggi,inspect, .. should implicitelly skip Gofeds folder (and report it to stdin/stderr)
+[OK] - when generating list of [B]R or Provides, sort it alphabetically
+[OK] - skip example and examples provides
+[OK] - read all local database paths from config file, don't use wired ones
+[OK] - check for the latest release and set version tag based on it so we don't have always 0-0.1.git...
+[OK] - http://camlistore.org/pkg/throttle not shown in ggi (if there is Unknown class => report it during spec file generator)
+[OK] - gofed ggi/inspect - skip Godeps directory (imlicit, add option not to skip it)
+[OK] - bitbucket spec file generator
+[OK] - add --skip-branch into build/scratchbuild
+[OK] - bash autocompletion for options
+[OK] - When I update a package, gofed scan-imports will update local db. But list of import paths provided by spec files is not updated. gofed scan-packages -u has to update those import paths as well.
+[OK] - rename go2fed to gofed
+[OK] - gofed ggi - filter out all import paths in provides that defines only main packages
+[OK] - gofed bbo - add --wait option to wait for overrides
+[OK] - add --branches and --ebranches to bbobranches.py
+[OK] - add gofed version
+[OK] - check all os.chdir in all modules (no rm -rf on directories unless I am 100% sure where I am)
+[--] - until go source codes are back-compatible, don't use BuildRequires in devel subpackages (tool will list the complete list of all deps (and their versions). No [build]dependencies among devel? No Requires? What are consequences? {PKG_DRAFT}
+[OK] - gofed apidiff: add --prefix to specify import path prefix
+[OK] - add options to run wizard only for a single branch
+[OK] - replace ggi and inspect with scansymbols
 [--] - script to check new commits for golang packages {for github only right now}
 [OK] - script to check if given dependency is already in fedora (list of all deps plus links to repo, which deps are no longer needed, ...)
 [OK] - add a script to check which golang packages provides binaries (which version of golang was used to built it?) and rebuild them eventuelly
